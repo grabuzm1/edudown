@@ -18,9 +18,9 @@ export default function StudentJoin() {
   const [studentCode, setStudentCode] = useState('')
   const [byCode, setByCode] = useState<LessonsByCode | null>(null)
   const [accessCode, setAccessCode] = useState('')
-  const [surname, setSurname] = useState(''); const [name, setName] = useState('')
+  const [surname, setSurname] = useState('')
+  const [name, setName] = useState('')
 
-  // вернулись с Down ID callback -> сразу к шагу кода/обычного урока
   useEffect(() => {
     if (params.get('account') && localStorage.getItem('student_account')) {
       setWithAccount(true)
@@ -36,16 +36,17 @@ export default function StudentJoin() {
     nav('/workspace')
   }
 
-      const goDownId = () => {
+  const goDownId = () => {
     window.location.assign(DOWN_URL + '/consent?service=edudown')
-  }
   }
 
   const loadByCode = async () => {
     if (!studentCode.trim()) { toast('Введи код ученика', 'err'); return }
     setBusy(true)
-    try { setByCode(await studentApi.lessonsByCode(studentCode.trim().toUpperCase())); setStep('lessons') }
-    catch (e) { toast(errText(e), 'err') } finally { setBusy(false) }
+    try {
+      setByCode(await studentApi.lessonsByCode(studentCode.trim().toUpperCase()))
+      setStep('lessons')
+    } catch (e) { toast(errText(e), 'err') } finally { setBusy(false) }
   }
 
   const joinLesson = async (code: string) => {
@@ -60,7 +61,8 @@ export default function StudentJoin() {
       const acc = withAccount ? JSON.parse(localStorage.getItem('student_account') || 'null') : null
       finish(await studentApi.join({
         access_code: accessCode.trim().toUpperCase(),
-        surname: acc?.surname ?? surname, name: acc?.name ?? name,
+        surname: acc?.surname ?? surname,
+        name: acc?.name ?? name,
         account_id: acc?.id ?? null,
       }))
     } catch (err) { toast(errText(err), 'err') } finally { setBusy(false) }
@@ -179,5 +181,6 @@ export default function StudentJoin() {
       </div>
     )
   }
+
   return null
 }
