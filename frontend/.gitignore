@@ -1,0 +1,22 @@
+# зависимости и сборки
+.venv/
+venv/
+node_modules/
+dist/
+build/
+__pycache__/
+*.pyc
+
+# секреты и база — НИКОГДА не в git
+.env
+*.db
+*.sqlite3
+
+# мусор
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/
+frontend/old/
+frontend/src/App_backup.tsx
