@@ -36,8 +36,9 @@ export default function StudentJoin() {
     nav('/workspace')
   }
 
-    const goDownId = () => {
-    window.location.assign('https://imdown.pro/consent?service=edudown')
+      const goDownId = () => {
+    window.location.assign(DOWN_URL + '/consent?service=edudown')
+  }
   }
 
   const loadByCode = async () => {
