@@ -1111,7 +1111,6 @@ async def migrate_and_dedupe():
 async def lifespan(app: FastAPI):
     await init_db()
     await migrate_and_dedupe()
-    await remove_demo()
     print("[EduDown] Запущено.")
     yield
 
