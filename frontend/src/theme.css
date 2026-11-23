@@ -1,201 +1,73 @@
-/* ═══════════════════════════════════════════════════════════════
-   EduDown Pro · theme.css
-   Тени окон · анимации · лендинг · профессиональная тёмная тема
-   ═══════════════════════════════════════════════════════════════ */
-
-/* ── Плавный переход между темами ── */
-body, .glass, .field, .ghost, .badge, .badge-live, .badge-draft {
-  transition: background-color .25s ease, color .25s ease, border-color .25s ease;
-}
-
-/* ═══ ФИКС ТЕНЕЙ: drop-shadow всегда повторяет форму со скруглениями ═══ */
+/* ═══ тени окон по форме скруглений ═══ */
 .pop { border-radius: 20px !important; }
 .slidein { border-radius: 20px 0 0 20px !important; }
 .toastin { border-radius: 14px !important; }
-
 .pop, .slidein, .toastin {
   box-shadow: none !important;
-  filter: drop-shadow(0 18px 45px rgba(3, 10, 30, .35));
+  filter: drop-shadow(0 18px 45px rgba(0, 0, 0, .45));
 }
-.glass::before, .glass::after,
-.pop::before, .pop::after { border-radius: inherit !important; }
+.glass::before, .glass::after, .pop::before, .pop::after { border-radius: inherit !important; }
 
-/* ═══ Анимация панели «Все задания» ═══ */
-@keyframes tasksPanelIn {
-  from { opacity: 0; transform: translateY(-8px) scale(.98); }
-  to   { opacity: 1; transform: none; }
-}
-@keyframes taskTileIn {
-  from { opacity: 0; transform: translateY(10px) scale(.96); }
-  to   { opacity: 1; transform: none; }
-}
+/* ═══ анимации панели заданий ═══ */
+@keyframes tasksPanelIn { from { opacity: 0; transform: translateY(-8px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes taskTileIn { from { opacity: 0; transform: translateY(10px) scale(.96); } to { opacity: 1; transform: none; } }
 .tasks-panel { animation: tasksPanelIn .22s ease-out both; }
-.task-tile   { animation: taskTileIn .3s cubic-bezier(.2, .8, .3, 1) both; }
+.task-tile { animation: taskTileIn .3s cubic-bezier(.2, .8, .3, 1) both; }
 
-/* ═══ Лендинг ═══ */
+/* ═══ лендинг ═══ */
 @keyframes floatY { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 .hero-float { animation: floatY 5s ease-in-out infinite; }
 .feature-card { transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease; }
-.feature-card:hover { transform: translateY(-4px); box-shadow: 0 18px 50px -18px rgba(79, 125, 255, .35); }
+.feature-card:hover { transform: translateY(-4px); box-shadow: 0 18px 50px -18px rgba(0, 0, 0, .5); }
 
-@media (prefers-reduced-motion: reduce) {
-  .tasks-panel, .task-tile, .hero-float { animation: none !important; }
-}
+/* ═══════════════════════════════════════════════
+   ТЁМНАЯ ТЕМА = белая тема с тёмными цветами.
+   Ничего лишнего: те же отступы/кнопки/акценты.
+   ═══════════════════════════════════════════════ */
+[data-theme="dark"] body { background: #101216 !important; color: #e6e8ee !important; }
+[data-theme="dark"] .aurora { opacity: .15 !important; }
+[data-theme="dark"] .grain { opacity: .04 !important; }
 
-/* ═══════════════════════════════════════════════════════════════
-   ТЁМНАЯ ТЕМА · только /teacher и /workspace
-   Палитра: глубокий navy, приподнятые поверхности, волосяные
-   границы, читаемая иерархия текста, спокойные акценты.
-   ═══════════════════════════════════════════════════════════════ */
-
-[data-theme="dark"] {
-  color-scheme: dark;
-
-  /* поверхности */
-  --d-bg:        #0b101c;
-  --d-inset:     #080c16;
-  --d-surface:   rgba(22, 29, 48, .92);
-  --d-surface-2: rgba(15, 21, 36, .92);
-  --d-line:      rgba(148, 170, 220, .14);
-  --d-line-2:    #2c3b60;
-
-  /* текст */
-  --d-text:      #edf1fa;
-  --d-text-2:    #a6b3d2;
-  --d-text-3:    #7c8bb0;
-
-  /* акценты */
-  --d-blue:      #6f97ff;
-  --d-purple:    #a78bfa;
-  --d-green:     #b5ef52;
-  --d-amber:     #fcd34d;
-  --d-red:       #ff6b81;
-}
-
-/* ── Фон: глубокий navy + два спокойных свечения, без радуги ── */
-[data-theme="dark"] body {
-  background:
-    radial-gradient(1100px 560px at 72% -12%, rgba(79, 125, 255, .10), transparent 62%),
-    radial-gradient(900px 520px at 8% 112%, rgba(139, 92, 246, .07), transparent 60%),
-    var(--d-bg) !important;
-  background-attachment: fixed !important;
-  color: var(--d-text) !important;
-}
-[data-theme="dark"] .aurora { display: none !important; }
-[data-theme="dark"] .grain { opacity: .035 !important; }
-
-/* ── Заголовки: светлые, но градиентные не трогаем ── */
-[data-theme="dark"] h1:not(.text-transparent),
-[data-theme="dark"] h2:not(.text-transparent),
-[data-theme="dark"] h3:not(.text-transparent),
-[data-theme="dark"] h4:not(.text-transparent),
-[data-theme="dark"] h5:not(.text-transparent),
-[data-theme="dark"] h6:not(.text-transparent) { color: var(--d-text) !important; }
-[data-theme="dark"] .bg-clip-text { color: transparent !important; }
-
-/* ── Стеклянные поверхности: убиваем светлые подложки-псевдоэлементы ── */
 [data-theme="dark"] .glass {
-  background: linear-gradient(180deg, var(--d-surface), var(--d-surface-2)) !important;
-  border-color: var(--d-line) !important;
-  color: var(--d-text) !important;
-  backdrop-filter: blur(16px) saturate(1.1);
-  -webkit-backdrop-filter: blur(16px) saturate(1.1);
+  background: #191c23 !important;
+  border-color: #2a2f3a !important;
+  color: #e6e8ee !important;
 }
-[data-theme="dark"] .glass::before,
-[data-theme="dark"] .glass::after {
-  background: none !important;
-  opacity: 0 !important;
-}
-[data-theme="dark"] .card:hover { border-color: rgba(111, 151, 255, .45) !important; }
+[data-theme="dark"] header.glass { background: #14161c !important; }
 
-/* ── Поля ввода ── */
 [data-theme="dark"] .field {
-  background: rgba(10, 15, 28, .85) !important;
-  border-color: var(--d-line-2) !important;
-  color: var(--d-text) !important;
+  background: #12151b !important;
+  border-color: #2a2f3a !important;
+  color: #e6e8ee !important;
 }
-[data-theme="dark"] .field::placeholder { color: var(--d-text-3) !important; }
-[data-theme="dark"] .field:focus { border-color: var(--d-blue) !important; }
-[data-theme="dark"] select.field option { background: #101828; color: var(--d-text); }
-[data-theme="dark"] input[type="checkbox"] { accent-color: var(--d-blue); }
+[data-theme="dark"] .field::placeholder { color: #6b7280 !important; }
+[data-theme="dark"] select.field option { background: #191c23 !important; color: #e6e8ee !important; }
 
-/* ── Вторичные кнопки ── */
 [data-theme="dark"] .ghost {
-  background: rgba(111, 151, 255, .07) !important;
-  border-color: rgba(148, 170, 220, .22) !important;
-  color: #c6d2ee !important;
+  background: #1f232c !important;
+  border-color: #2a2f3a !important;
+  color: #c6cbd6 !important;
 }
-[data-theme="dark"] .ghost:hover {
-  background: rgba(111, 151, 255, .16) !important;
-  border-color: rgba(111, 151, 255, .45) !important;
-  color: #ffffff !important;
-}
-[data-theme="dark"] .ghost:disabled { opacity: .4 !important; }
+[data-theme="dark"] .ghost:hover { background: #262b36 !important; color: #ffffff !important; }
 
-/* ── Основная кнопка: лёгкое свечение в темноте ── */
-[data-theme="dark"] .neon { filter: drop-shadow(0 6px 20px rgba(0, 0, 0, .55)); }
+/* неон остаётся тем же коралловым, что в светлой теме */
 
-/* ── Бейджи и точки прогресса ── */
-[data-theme="dark"] .badge-live {
-  background: rgba(163, 230, 53, .14) !important;
-  color: var(--d-green) !important;
-  border-color: rgba(163, 230, 53, .35) !important;
-}
-[data-theme="dark"] .badge-draft {
-  background: rgba(148, 163, 199, .12) !important;
-  color: #9aa8c7 !important;
-  border-color: rgba(148, 163, 199, .28) !important;
-}
-[data-theme="dark"] .dot { background: rgba(148, 163, 199, .25) !important; }
-[data-theme="dark"] .dot.done { background: var(--d-green) !important; }
-[data-theme="dark"] .dot.now {
-  background: var(--d-blue) !important;
-  box-shadow: 0 0 0 4px rgba(111, 151, 255, .18) !important;
-}
+[data-theme="dark"] .badge-draft { background: rgba(154,161,176,.14) !important; color: #9aa1b0 !important; border-color: rgba(154,161,176,.3) !important; }
+[data-theme="dark"] .badge-live { background: rgba(163,230,53,.14) !important; color: #a3e635 !important; border-color: rgba(163,230,53,.35) !important; }
 
-/* ── Хардкод-цвета компонентов: подстраиваем под тёмный фон ── */
-[data-theme="dark"] .text-\[\#5b6c92\] { color: var(--d-text-3) !important; }
-[data-theme="dark"] .text-\[\#93a9d1\] { color: var(--d-text-2) !important; }
-[data-theme="dark"] .text-\[\#dbe6ff\] { color: #dbe6ff !important; }
-[data-theme="dark"] .text-\[\#4f7dff\] { color: var(--d-blue) !important; }
-[data-theme="dark"] .text-\[\#8b5cf6\] { color: var(--d-purple) !important; }
-[data-theme="dark"] .text-\[\#a3e635\] { color: var(--d-green) !important; }
-[data-theme="dark"] .text-\[\#fbbf24\] { color: var(--d-amber) !important; }
-[data-theme="dark"] .text-\[\#f43f5e\] { color: var(--d-red) !important; }
-[data-theme="dark"] .border-\[\#233052\] { border-color: #2e3c5e !important; }
+/* подписи/вторичный текст */
+[data-theme="dark"] .text-\[\#93a9d1\] { color: #9aa1b0 !important; }
+[data-theme="dark"] .text-\[\#5b6c92\] { color: #6b7280 !important; }
+[data-theme="dark"] .text-\[\#dbe6ff\] { color: #e6e8ee !important; }
 
-/* ── Консоль и редактор: единый врезанный тон ── */
-[data-theme="dark"] .bg-\[\#070b18\] { background-color: var(--d-inset) !important; }
-[data-theme="dark"] .monaco-editor,
-[data-theme="dark"] .monaco-editor-background,
-[data-theme="dark"] .monaco-editor .margin { background-color: var(--d-inset) !important; }
-[data-theme="dark"] .monaco-editor .line-numbers { color: #55648c !important; }
-[data-theme="dark"] .monaco-editor .current-line ~ .line-numbers { color: #9fb0d4 !important; }
+/* тёмные вставки (консоль, тулбар редактора) */
+[data-theme="dark"] .bg-\[\#070b18\] { background: #0b0d12 !important; }
+[data-theme="dark"] .border-\[\#233052\] { border-color: #2a2f3a !important; }
 
-/* ── Тени окон в темноте: глубже и мягче ── */
 [data-theme="dark"] .pop,
 [data-theme="dark"] .slidein,
-[data-theme="dark"] .toastin { filter: drop-shadow(0 24px 60px rgba(0, 0, 0, .75)); }
+[data-theme="dark"] .toastin { filter: drop-shadow(0 20px 50px rgba(0, 0, 0, .6)); }
 
-/* ── Фокус, выделение, скроллбары ── */
-[data-theme="dark"] :focus-visible {
-  outline: 2px solid rgba(111, 151, 255, .6) !important;
-  outline-offset: 2px;
-}
-[data-theme="dark"] ::selection { background: rgba(111, 151, 255, .35); color: #ffffff; }
-[data-theme="dark"] * { scrollbar-width: thin; scrollbar-color: #2c3a5c transparent; }
 [data-theme="dark"] ::-webkit-scrollbar { width: 10px; height: 10px; }
+[data-theme="dark"] ::-webkit-scrollbar-thumb { background: #2a2f3a; border-radius: 8px; }
 [data-theme="dark"] ::-webkit-scrollbar-track { background: transparent; }
-[data-theme="dark"] ::-webkit-scrollbar-thumb {
-  background: #2c3a5c;
-  border-radius: 8px;
-  border: 2px solid transparent;
-  background-clip: content-box;
-}
-[data-theme="dark"] ::-webkit-scrollbar-thumb:hover { background: #3d4f7a; background-clip: content-box; }
-[data-theme="dark"] ::-webkit-scrollbar-corner { background: transparent; }
-
-.rise, .pop, .slidein, .toastin, .tasks-panel, .task-tile {
-  animation-fill-mode: backwards !important;
-}
-.rise, .tasks-panel { transform: none !important; }

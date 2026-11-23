@@ -1154,7 +1154,10 @@ async def health():
 
 
 # Подключаем папку с готовым фронтендом
-app.mount("/assets", StaticFiles(directory="public/assets"), name="assets")
+import os as _os
+_assets_dir = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "public", "assets")
+_os.makedirs(_assets_dir, exist_ok=True)
+app.mount("/assets", StaticFiles(directory=_assets_dir), name="assets"),
 
 # Отдаем index.html для всех остальных путей (чтобы работал React Router)
 @app.get("/{full_path:path}")

@@ -1,10 +1,13 @@
 import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Editor from '@monaco-editor/react'
-import { ArrowLeft, CheckCircle2, Eraser, Loader2, Play, RotateCcw, Sparkles, Square, Terminal, XCircle } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, Eraser, Loader2, Moon, Play, RotateCcw, Sparkles, Square, Sun, Terminal, XCircle } from 'lucide-react'
 import { practiceApi, errText } from '../api'
 import { useToast } from '../context/ToastContext'
+import { useTheme } from '../context/ThemeContext'
+
 import { usePyodideRunner } from '../pyodide/usePyodideRunner'
+
 
 type PTask = { title: string; description: string; starter_code: string; ai_criteria: string; done?: boolean; tried?: boolean }
 type Line = { kind: 'out' | 'err' | 'sys'; text: string }
@@ -12,6 +15,7 @@ type Line = { kind: 'out' | 'err' | 'sys'; text: string }
 export default function Practice() {
   const nav = useNavigate()
   const toast = useToast()
+  const { theme, toggle } = useTheme()
   const [grade, setGrade] = useState(7)
   const [level, setLevel] = useState('начинающий')
   const [custom, setCustom] = useState(false)
@@ -74,7 +78,12 @@ export default function Practice() {
           <h2 className="text-2xl font-extrabold flex items-center gap-2"><Sparkles size={22} className="text-[#4f7dff]" /> Тренировка</h2>
           <p className="text-sm text-[#93a9d1]">Решай задачи по своему уровню — без урока и оценок</p>
         </div>
-        <button className="ghost px-3 py-2 rounded-xl text-xs flex items-center gap-1" onClick={() => nav('/join')}><ArrowLeft size={12} /> К входу</button>
+                <div className="flex items-center gap-2">
+          <button className="ghost p-2 rounded-xl" onClick={toggle} title={theme === 'light' ? 'Тёмная тема' : 'Светлая тема'}>
+            {theme === 'light' ? <Moon size={15} /> : <Sun size={15} />}
+          </button>
+          <button className="ghost px-3 py-2 rounded-xl text-xs flex items-center gap-1" onClick={() => nav('/join')}><ArrowLeft size={12} /> К входу</button>
+        </div>
       </div>
 
       <div className="glass rounded-2xl p-4 space-y-3">
