@@ -17,6 +17,8 @@ from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy import delete, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
 from config import get_settings
 from database import async_session, get_db, init_db
@@ -1150,6 +1152,14 @@ async def root():
 async def health():
     return {"status": "ok"}
 
+
+# Подключаем папку с готовым фронтендом
+app.mount("/assets", StaticFiles(directory="public/assets"), name="assets")
+
+# Отдаем index.html для всех остальных путей (чтобы работал React Router)
+@app.get("/{full_path:path}")
+async def serve_frontend(full_path: str):
+    return FileResponse("public/index.html")
 
 if __name__ == "__main__":
     import uvicorn
