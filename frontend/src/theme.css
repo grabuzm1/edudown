@@ -30,14 +30,14 @@
 
 [data-theme="dark"] .glass {
   background: #191c23 !important;
-  border-color: #2a2f3a !important;
+  border-color: #050505 !important;
   color: #e6e8ee !important;
 }
 [data-theme="dark"] header.glass { background: #14161c !important; }
 
 [data-theme="dark"] .field {
   background: #12151b !important;
-  border-color: #2a2f3a !important;
+  border-color: #050505 !important;
   color: #e6e8ee !important;
 }
 [data-theme="dark"] .field::placeholder { color: #6b7280 !important; }
@@ -45,7 +45,7 @@
 
 [data-theme="dark"] .ghost {
   background: #1f232c !important;
-  border-color: #2a2f3a !important;
+  border-color: #050505 !important;
   color: #c6cbd6 !important;
 }
 [data-theme="dark"] .ghost:hover { background: #262b36 !important; color: #ffffff !important; }
