@@ -17,6 +17,16 @@ export default function Home() {
   ]
   return (
     <div className="rise space-y-16 py-6">
+            <div className="max-w-3xl mx-auto glass rounded-2xl p-4 flex items-start gap-3" style={{ borderLeft: '4px solid #fbbf24' }}>
+        <span className="text-xl leading-none">🛠️</span>
+        <div className="text-sm">
+          <div className="font-bold">Плановые работы на сервере</div>
+          <p className="text-[#93a9d1] mt-1">
+            25 ноября с 12:00 МСК (09:00 UTC) проводим плановые работы на стороне сервера — меняют оборудование на подстанции.
+            Сайт и уроки могут быть временно недоступны (ориентировочно 5-20 минут). Все данные и работы учеников сохранятся.
+          </p>
+        </div>
+      </div>
       {/* HERO */}
       <section className="text-center space-y-6 max-w-3xl mx-auto">
         <div className="inline-flex items-center gap-2 glass rounded-full px-4 py-1.5 text-xs text-[#93a9d1]">
