@@ -26,20 +26,10 @@ GEMINI_MODELS = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest", 
 
 
 # ═══════════════ КЛЮЧИ / ДИАГНОСТИКА ═══════════════
-def _gkey():
-    return (settings.GEMINI_API_KEY or "").strip()
-
-
-def _okey():
-    return (settings.OPENAI_API_KEY or "").strip()
-
-
-def _gigakey():
-    return (getattr(settings, "GIGACHAT_AUTH_KEY", "") or "").strip()
-
-
-def _giga(name, default):
-    return getattr(settings, name, default)
+def _gkey(): return (settings.GEMINI_API_KEY or "").strip()
+def _okey(): return (settings.OPENAI_API_KEY or "").strip()
+def _gigakey(): return (getattr(settings, "GIGACHAT_AUTH_KEY", "") or "").strip()
+def _giga(name, default): return getattr(settings, name, default)
 
 
 def _debug_env():
@@ -57,70 +47,25 @@ def _debug_env():
     }
 
 
-def _parse(text):
+def _parse(text: str):
     text = re.sub(r"^```(?:json)?\s*", "", text.strip())
     text = re.sub(r"\s*```$", "", text)
     try:
         return json.loads(text)
     except Exception:
         pass
-    # ищем JSON внутри
-    src = text
     for op in ("[", "{"):
         i = text.find(op)
         if i >= 0:
-            src = text[i:]
             try:
-                return json.JSONDecoder().raw_decode(src)[0]
+                return json.JSONDecoder().raw_decode(text[i:])[0]
             except Exception:
                 continue
-    # попытка починить обрезанный JSON
-    i_brace = text.find("{")
-    i_sq = text.find("[")
-    if i_brace >= 0 or i_sq >= 0:
-        start = min(x for x in (i_brace, i_sq) if x >= 0)
-        src = text[start:]
-        # закрываем все незакрытые скобки
-        stack = []
-        in_str = False
-        esc = False
-        for ch in src:
-            if esc:
-                esc = False
-                continue
-            if ch == "\\":
-                esc = True
-                continue
-            if ch == '"':
-                in_str = not in_str
-                continue
-            if in_str:
-                continue
-            if ch in ("{", "["):
-                stack.append(ch)
-            elif ch == "}" and stack and stack[-1] == "{":
-                stack.pop()
-            elif ch == "]" and stack and stack[-1] == "[":
-                stack.pop()
-        close = ""
-        for s in reversed(stack):
-            close += "}" if s == "{" else "]"
-        if close:
-            fixed = src.rstrip()
-            # убираем последний незавершённый элемент (висячая запятая/незаконченный объект)
-            last_cut = max(fixed.rfind(","), fixed.rfind("{"), fixed.rfind("["))
-            if last_cut > 0:
-                fixed = fixed[:last_cut]
-            fixed = fixed.rstrip() + close
-            try:
-                return json.JSONDecoder().raw_decode(fixed)[0]
-            except Exception:
-                pass
-    raise RuntimeError("модель вернула не-JSON: " + text[:160])
+    raise RuntimeError(f"модель вернула не-JSON: {text[:160]}")
 
 
 # ═══════════════ GIGACHAT ═══════════════
-async def _gigachat_token():
+async def _gigachat_token() -> str:
     key = _gigakey()
     if not key:
         raise RuntimeError("GIGACHAT_AUTH_KEY не задан (проверь backend/.env)")
@@ -128,42 +73,42 @@ async def _gigachat_token():
         "Content-Type": "application/x-www-form-urlencoded",
         "Accept": "application/json",
         "RqUID": str(uuid.uuid4()),
-        "Authorization": "Bearer " + key,
+        "Authorization": f"Bearer {key}",
     }
     data = {"scope": _giga("GIGACHAT_SCOPE", "GIGACHAT_API_PERS")}
     async with httpx.AsyncClient(verify=_giga("GIGACHAT_VERIFY_SSL", False), timeout=30) as c:
         r = await c.post(_giga("GIGACHAT_OAUTH_URL", "https://ngw.devices.sberbank.ru:9443/api/v2/oauth"),
                          headers=headers, data=data)
         if r.status_code != 200:
-            raise RuntimeError("GigaChat OAuth " + str(r.status_code) + ": " + r.text[:200])
+            raise RuntimeError(f"GigaChat OAuth {r.status_code}: {r.text[:200]}")
         return r.json()["access_token"]
 
 
-async def _gigachat(prompt, temp, json_mode):
+async def _gigachat(prompt: str, temp: float, json_mode: bool):
     token = await _gigachat_token()
     model = _giga("GIGACHAT_MODEL", "GigaChat")
-    body = {"model": model, "messages": [{"role": "user", "content": prompt}], "temperature": temp, "max_tokens": 4096}
+    body = {"model": model, "messages": [{"role": "user", "content": prompt}], "temperature": temp}
     if json_mode:
         body["response_format"] = {"type": "json_object"}
-    headers = {"Authorization": "Bearer " + token, "Content-Type": "application/json"}
+    headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
     base = _giga("GIGACHAT_BASE_URL", "https://gigachat.devices.sberbank.ru/api/v1")
     async with httpx.AsyncClient(verify=_giga("GIGACHAT_VERIFY_SSL", False), timeout=float(settings.AI_TIMEOUT)) as c:
-        r = await c.post(base + "/chat/completions", headers=headers, json=body)
+        r = await c.post(f"{base}/chat/completions", headers=headers, json=body)
         if r.status_code != 200:
             msg = r.text[:200]
             try:
                 msg = r.json().get("error", {}).get("message", msg)
             except Exception:
                 pass
-            raise RuntimeError("GigaChat HTTP " + str(r.status_code) + ": " + msg)
+            raise RuntimeError(f"GigaChat HTTP {r.status_code}: {msg}")
         text = r.json()["choices"][0]["message"]["content"] or ""
         if not text.strip():
             raise RuntimeError("GigaChat вернул пустой ответ")
-        return text, "gigachat:" + model
+        return text, f"gigachat:{model}"
 
 
 # ═══════════════ GEMINI ═══════════════
-async def _gemini(prompt, temp, json_mode):
+async def _gemini(prompt: str, temp: float, json_mode: bool):
     key = _gkey()
     if not key:
         raise RuntimeError("GEMINI_API_KEY не задан (проверь backend/.env)")
@@ -173,63 +118,57 @@ async def _gemini(prompt, temp, json_mode):
     async with httpx.AsyncClient(timeout=float(settings.AI_TIMEOUT)) as c:
         for ver in ("v1beta", "v1"):
             for m in models:
-                body = {"contents": [{"parts": [{"text": prompt}]}],
-                        "generationConfig": {"temperature": temp, "maxOutputTokens": 4096}}
+                body = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": temp}}
                 if json_mode:
                     body["generationConfig"]["responseMimeType"] = "application/json"
                 try:
-                    r = await c.post(base + "/" + ver + "/models/" + m + ":generateContent",
+                    r = await c.post(f"{base}/{ver}/models/{m}:generateContent",
                                      headers={"x-goog-api-key": key, "Content-Type": "application/json"}, json=body)
                 except Exception as e:
-                    errs.append(type(e).__name__ + ": " + str(e))
-                    continue
+                    errs.append(f"{type(e).__name__}: {e}"); continue
                 if r.status_code == 404:
-                    errs.append(m + ": 404")
-                    continue
+                    errs.append(f"{m}: 404"); continue
                 if r.status_code != 200:
                     msg = r.text[:200]
                     try:
                         msg = r.json().get("error", {}).get("message", msg)
                     except Exception:
                         pass
-                    errs.append(m + ": HTTP " + str(r.status_code) + " " + msg)
-                    continue
+                    errs.append(f"{m}: HTTP {r.status_code} {msg}"); continue
                 parts = r.json().get("candidates", [{}])[0].get("content", {}).get("parts", [])
                 text = "".join(p.get("text", "") for p in parts)
                 if not text.strip():
-                    errs.append(m + ": пустой ответ")
-                    continue
-                return text, "gemini:" + m
+                    errs.append(f"{m}: пустой ответ"); continue
+                return text, f"gemini:{m}"
     raise RuntimeError("Gemini недоступен → " + " | ".join(errs[-3:]))
 
 
 # ═══════════════ OPENAI ═══════════════
-async def _openai(prompt, temp, json_mode):
+async def _openai(prompt: str, temp: float, json_mode: bool):
     key = _okey()
     if not key:
         raise RuntimeError("OPENAI_API_KEY не задан")
-    body = {"model": settings.OPENAI_MODEL, "messages": [{"role": "user", "content": prompt}], "temperature": temp,
-            "max_tokens": 4096}
+    body = {"model": settings.OPENAI_MODEL, "messages": [{"role": "user", "content": prompt}], "temperature": temp}
     if json_mode:
         body["response_format"] = {"type": "json_object"}
     async with httpx.AsyncClient(timeout=float(settings.AI_TIMEOUT)) as c:
-        r = await c.post(settings.OPENAI_BASE_URL.rstrip("/") + "/chat/completions",
-                         headers={"Authorization": "Bearer " + key, "Content-Type": "application/json"}, json=body)
+        r = await c.post(f"{settings.OPENAI_BASE_URL.rstrip('/')}/chat/completions",
+                         headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"}, json=body)
         if r.status_code != 200:
             msg = r.text[:200]
             try:
                 msg = r.json().get("error", {}).get("message", msg)
             except Exception:
                 pass
-            raise RuntimeError("шлюз HTTP " + str(r.status_code) + ": " + msg)
+            raise RuntimeError(f"шлюз HTTP {r.status_code}: {msg}")
         text = r.json()["choices"][0]["message"]["content"] or ""
         if not text.strip():
             raise RuntimeError("шлюз вернул пустой ответ")
-        return text, "openai:" + settings.OPENAI_MODEL
+        return text, f"openai:{settings.OPENAI_MODEL}"
 
 
 # ═══════════════ МАРШРУТИЗАТОР ═══════════════
-async def ask(prompt, temp=0.4, json_mode=True):
+async def ask(prompt: str, temp=0.4, json_mode=True):
     order = {
         "gemini": [_gemini],
         "openai": [_openai],
@@ -249,36 +188,52 @@ async def ask(prompt, temp=0.4, json_mode=True):
 
 
 # ═══════════════ ПРОВЕРКА РЕШЕНИЯ (ТОЛЬКО AI) ═══════════════
-_CHECK_JSON = '{"is_correct": true или false, "score": число 0-100, "feedback": "2-3 предложения ученику", "reasoning": "обоснование для учителя"}'
-
-
-async def check_with_ai(task_description, task_criteria, ai_system_prompt, student_code, stdout, stderr):
+async def check_with_ai(task_description: str, task_criteria: str, ai_system_prompt: str,
+                        student_code: str, stdout: str, stderr: str) -> dict:
     persona = (ai_system_prompt or "").strip() or "Ты строгий, но справедливый учитель информатики. Пиши по-русски на «ты»."
-    prompt = (
-        persona + "\n\n"
-        "ТВОЯ ЕДИНСТВЕННАЯ ЗАДАЧА: проверить, выполнил ли ученик задание.\n\n"
-        "ЗАДАНИЕ:\n" + (task_description or "") + "\n\n"
-        "КРИТЕРИИ ПРАВИЛЬНОСТИ:\n" + (task_criteria or "Программа должна работать без ошибок и выполнять условие задания.") + "\n\n"
-        "КОД УЧЕНИКА:\n" + (student_code or "") + "\n\n"
-        "ВЫВОД ПРОГРАММЫ (stdout):\n" + (stdout or "(пусто)") + "\n\n"
-        "ОШИБКИ ПРОГРАММЫ (stderr):\n" + (stderr or "(нет ошибок)") + "\n\n"
-        "ПРАВИЛА ОЦЕНКИ (СЛЕДУЙ СТРОГО):\n"
-        "1. ГЛАВНОЕ: если stdout соответствует тому, что просит задание — решение ВЕРНОЕ, независимо от способа. "
-        "Примеры: «выведи 7» + print(7) / x=7;print(x) / print(\"7\") → ВЕРНО. "
-        "«введи своё имя и поздоровайся» + name=input(); print(\"Привет, \"+name) → ВЕРНО при ЛЮБОМ имени.\n"
-        "2. ТИПЫ ДАННЫХ: если задание/критерии требуют число или арифметику, ученик ОБЯЗАН преобразовать ввод: int(input()) / float(input()). "
-        "Если он читает input() как строку и клеит строки вместо математики (2+2 даёт 22 вместо 4) — НЕ засчитывай, даже если вывод похож. "
-        "Если требуется конкретная конструкция (цикл for, def, int) — она обязательна; без неё снижай score до 60-80, но не ставь 0, если вывод верный.\n"
-        "3. Если stderr не пустой (программа упала) — НЕВЕРНО, score 0-20.\n"
-        "4. Если stdout пустой, а задание требует вывод — НЕВЕРНО, score 0-30.\n"
-        "5. ШКАЛА: 100 всё верно; 80-90 верно, но пропущена необязательная конструкция; 60-70 частично; 30-50 вывод неверный, но запустилось; 0-20 упало/пусто.\n\n"
-        "ЗАПРЕЩЕНО:\n"
-        "- искать в stdout слова «вывод содержит», «expected_output», «required_construction»;\n"
-        "- снижать оценку за стиль кода, если вывод и типы верные;\n"
-        "- требовать конструкции, которые задание не упоминает;\n"
-        "- требовать конкретные имена/значения из примера, если задание говорит «введи своё».\n\n"
-        "ВЕРНИ СТРОГО JSON-ОБЪЕКТ (без markdown):\n" + _CHECK_JSON
-    )
+    prompt = f"""{persona}
+
+ТВОЯ ЕДИНСТВЕННАЯ ЗАДАЧА: проверить, выполнил ли ученик задание.
+
+ЗАДАНИЕ:
+{task_description}
+
+КРИТЕРИИ ПРАВИЛЬНОСТИ:
+{task_criteria or 'Программа должна работать без ошибок и выполнять условие задания.'}
+
+КОД УЧЕНИКА:
+{student_code}
+
+ВЫВОД ПРОГРАММЫ (stdout):
+{stdout or '(пусто)'}
+
+ОШИБКИ ПРОГРАММЫ (stderr):
+{stderr or '(нет ошибок)'}
+
+ПРАВИЛА ОЦЕНКИ (СЛЕДУЙ СТРОГО):
+
+1. ГЛАВНОЕ: если stdout соответствует тому, что просит задание — решение ВЕРНОЕ, независимо от способа.
+   Примеры: "выведи 7" + print(7) / x=7;print(x) / print("7") → ВЕРНО.
+   "введи своё имя и поздоровайся" + name=input(); print("Привет, "+name) → ВЕРНО при ЛЮБОМ имени, не только из примера.
+
+2. ТИПЫ ДАННЫХ: если задание/критерии требуют число или арифметику, ученик ОБЯЗАН преобразовать ввод: int(input()) / float(input()).
+   Если он читает input() как строку и клеит строки вместо математики (например "2"+"2"="22" вместо 4) — НЕ засчитывай, даже если вывод похож.
+   Если требуется конкретная конструкция (цикл for, def, int) — она обязательна; без неё снижай score до 60-80, но не ставь 0, если вывод верный.
+
+3. Если stderr не пустой (программа упала) — НЕВЕРНО, score 0-20.
+
+4. Если stdout пустой, а задание требует вывод — НЕВЕРНО, score 0-30.
+
+5. ШКАЛА: 100 всё верно; 80-90 верно, но пропущена необязательная конструкция; 60-70 частично; 30-50 вывод неверный, но запустилось; 0-20 упало/пусто.
+
+ЗАПРЕЩЕНО:
+- искать в stdout слова "вывод содержит", "expected_output", "required_construction";
+- снижать оценку за стиль кода, если вывод и типы верные;
+- требовать конструкции, которые задание не упоминает;
+- требовать конкретные имена/значения из примера, если задание говорит "введи своё".
+
+ВЕРНИ СТРОГО JSON-ОБЪЕКТ (без markdown):
+{{"is_correct": true или false, "score": число 0-100, "feedback": "2-3 предложения ученику", "reasoning": "краткое обоснование для учителя"}}"""
     try:
         text, provider = await ask(prompt, 0.1, True)
         v = _parse(text)
@@ -288,93 +243,53 @@ async def check_with_ai(task_description, task_criteria, ai_system_prompt, stude
             "is_correct": bool(v.get("is_correct", False)),
             "score": max(0, min(100, int(v.get("score", 0)))),
             "feedback": str(v.get("feedback", "")),
-            "reasoning": (str(v.get("reasoning", "")) + " [провайдер: " + provider + "]").strip(),
+            "reasoning": (str(v.get("reasoning", "")) + f" [провайдер: {provider}]").strip(),
         }
     except Exception as e:
         return {
             "is_correct": False,
             "score": 0,
             "feedback": "Нейросеть временно недоступна. Учитель проверит твоё решение вручную.",
-            "reasoning": "AI недоступен: " + type(e).__name__ + ": " + str(e),
+            "reasoning": f"AI недоступен: {type(e).__name__}: {e}",
         }
 
 
-# ═══════════════ ПРОГРАММА КЛАССОВ (без f-строк, конкатенация) ═══════════════
-def curriculum_hint(grade):
+# ═══════════════ ПРОГРАММА КЛАССОВ ═══════════════
+def curriculum_hint(grade: int | None) -> str:
     if not grade:
         return ""
     g = max(1, min(11, int(grade)))
-    prog = forb = beg = mid = adv = ""
-    if g <= 4:
-        prog = "только print, переменные (int/str), арифметика + - * /, простые строки, input()."
-        forb = "циклы, if, функции def, списки, словари."
-        beg = "1 действие: print(5+3), x = 7; print(x)."
-        mid = "2-3 действия с input: введи число, выведи удвоенное."
-        adv = "несколько input, арифметика в 3-4 строки, f-строка."
-    elif g <= 6:
-        prog = "if/elif/else, for по range, while, input, списки базово (создание, len, индекс)."
-        forb = "def, словари, срезы, list comprehension, ООП."
-        beg = "простое if: введи число, скажи чётное или нет."
-        mid = "for по range с if внутри: вывести чётные от 1 до N."
-        adv = "while + вложенные условия, обработка последовательности чисел."
-    elif g <= 8:
-        prog = "функции def с return, списки и методы (append, sort, min, max), словари, строковые методы (split, join, lower), вложенные циклы, срезы, f-строки."
-        forb = "ООП, рекурсия, генераторы, декораторы."
-        beg = "простая функция с 1 аргументом: def square(x): return x*x, вызов."
-        mid = "функция возвращает список или словарь, обработка входных данных."
-        adv = "вложенные циклы по списку списков, несколько функций, словари-счётчики."
-    elif g == 9:
-        prog = "программа РФ 9 класса и ОГЭ: обработка последовательностей чисел, чтение строк/файла, try/except, перебор, делимость, задачи с исполнителями."
-        forb = "ООП class, рекурсия, ДП."
-        beg = "последовательность: посчитать сумму чисел больше 0, найти минимум."
-        mid = "задача ОГЭ-стиль: фильтрация + агрегация + вывод по условию."
-        adv = "перебор с условиями, делимость, 2-3 вложенных условия в формате ОГЭ."
-    elif g == 10:
-        prog = "программа РФ 10 класса и ЕГЭ: двумерные массивы, сортировки, рекурсия basics, комбинаторика, задачи ЕГЭ 2/5/6/8/12/14."
-        forb = "сложное ДП, теория игр."
-        beg = "простая сортировка списка и вывод k-го элемента; перебор цифр числа."
-        mid = "двумерный массив: максимум в строке/столбце; простая рекурсия (факториал, Фибоначчи)."
-        adv = "комбинаторная задача ЕГЭ, перебор с возвратом, рекурсия с ветвлением."
-    else:
-        prog = "программа РФ 11 класса и ЕГЭ: ООП class (поля, методы, конструктор), рекурсия, основы ДП, теория игр (ЕГЭ 19-21), обработка строк/файлов (ЕГЭ 24-27)."
-        forb = "задачи уровня 1-8 класса (выведи 7, сумма двух) НЕДОПУСТИМЫ даже для новичка."
-        beg = "простой класс с 2-3 методами (Point с distance_to); простая обработка строки (подсчёт символов); базовая игра с 2 позициями."
-        mid = "класс с несколькими методами; ДП на 1D-массиве (лестница, кузнечик); игра с кучей камней (один ход)."
-        adv = "полная задача ЕГЭ 19-21 (теория игр, дерево позиций) или 24-27 (обработка большого файла)."
-    out = []
-    out.append("")
-    out.append("СТРОГО ПО ПРОГРАММЕ " + str(g) + " КЛАССА:")
-    out.append("Программа: " + prog)
-    out.append("ЗАПРЕЩЕНО: " + forb)
-    out.append("Уровни сложности ВНУТРИ программы " + str(g) + " класса:")
-    out.append("- начинающий = " + beg)
-    out.append("- средний = " + mid)
-    out.append("- опытный = " + adv)
-    out.append("ВАЖНО: класс определяет ТЕМУ, уровень определяет СЛОЖНОСТЬ внутри темы.")
-    out.append("Для 11 класса даже начинающий решает задачу по программе 11 класса (ООП/рекурсия/ЕГЭ), а НЕ задачу 5 класса.")
-    out.append("Никогда не выходи за программу класса ни вверх, ни вниз.")
-    return "\n".join(out)
+    bands = [
+        (1, 4, "Начальная школа: только print, переменные, арифметика, строки, input. ЗАПРЕЩЕНЫ циклы, условия, функции, списки."),
+        (5, 6, "5-6 класс: if/else, for по range, while, input, списки базово (len, индекс). ЗАПРЕЩЕНЫ def, словари, срезы."),
+        (7, 8, "7-8 класс: функции def с return, списки и методы, словари, строковые методы, вложенные циклы, срезы, f-строки. Потолок нашей системы уроков."),
+        (9, 9, "9 класс (программа РФ, ОГЭ): последовательности, файлы, try/except, перебор/делимость/исполнители. БЕЗ ООП и рекурсии."),
+        (10, 10, "10 класс (программа РФ, ЕГЭ): двумерные массивы, сортировки, рекурсия basics, комбинаторика, задачи ЕГЭ 2/5/6/8/12/14."),
+        (11, 11, "11 класс (программа РФ, ЕГЭ): ООП class, рекурсия, ДП basics, теория игр 19-21, обработка строк/файлов 24-27."),
+    ]
+    for a, b, txt in bands:
+        if a <= g <= b:
+            return f"\n\nПРОГРАММА {g} КЛАССА: {txt} Строго не выходи за эти темы."
+    return ""
 
 
 # ═══════════════ ГЕНЕРАЦИЯ ЗАДАНИЙ ═══════════════
-_GEN_JSON = '{"tasks": [{"title": "название", "description": "текст с примером ввода-вывода", "starter_code": "начальный код или пусто", "ai_criteria": "критерии через точку с запятой"}]}'
-
-
-async def generate_tasks(brief, count=3, level="начинающий", class_number=None, grade=None):
+async def generate_tasks(brief: str, count: int = 3, level: str = "начинающий",
+                         class_number: int | None = None, grade: int | None = None) -> list[dict]:
     count = max(1, min(6, int(count)))
     hint = curriculum_hint(grade or class_number)
-    prompt = (
-        "Ты методист по Python для школьников. Учитель просит: «" + brief + "». Уровень: " + level + "." + hint + "\n\n"
-        "ТВОЯ ГЛАВНАЯ ЗАДАЧА — строго соблюдать программу класса и уровень сложности:\n"
-        "1. КЛАСС определяет какие ТЕМЫ можно использовать (смотри Программа и ЗАПРЕЩЕНО выше).\n"
-        "2. УРОВЕНЬ (начинающий/средний/опытный) определяет СЛОЖНОСТЬ внутри этой программы.\n"
-        "3. Запрещено давать задачу ниже программы класса (для 11 класса НЕЛЬЗЯ «выведи 7» или «сумма двух») и выше программы класса (для 5 класса НЕЛЬЗЯ def и словари).\n\n"
-        "Сгенерируй ровно " + str(count) + " заданий от простого к сложному, все в рамках программы класса и уровня.\n\n"
-        "ФОРМАТ ОТВЕТА — СТРОГО JSON-объект без markdown и без обратных кавычек:\n" + _GEN_JSON + "\n\n"
-        "Правила: ai_criteria — короткие факты через точку с запятой (например 12; print).\n"
-        "ВАЖНО: в description максимум 2-3 коротких предложения, БЕЗ многострочных примеров кода — JSON должен поместиться целиком.\n"
-        "Все тексты на русском. Решения 5-15 строк кода."
-    )
+    prompt = f"""Ты методист по Python для школьников. Учитель просит: «{brief}». Уровень: {level}.{hint}
+
+Сгенерируй ровно {count} заданий от простого к сложному.
+
+ПРАВИЛА ДЛЯ description: простое требование + пример вывода. Не пиши слово «функция», если не требуется def.
+ПРАВИЛА ДЛЯ ai_criteria: конкретные факты через точку с запятой, например "7; print" или "2 4 6 8 10; for; print".
+Если нужна арифметика со вводом — добавь "int" или "float" в критерии.
+ЗАПРЕЩЕНЫ заглушки expected_output / required_construction и перефраз задания.
+
+Верни СТРОГО JSON-ОБЪЕКТ (не массив):
+{{"tasks": [{{"title": "до 60 символов", "description": "текст", "starter_code": "код или пусто", "ai_criteria": "7; print"}}]}}
+Все тексты на русском. Решения в 5-15 строк."""
     text, _ = await ask(prompt, 0.7, True)
     data = _parse(text)
     arr = None
@@ -396,7 +311,7 @@ async def generate_tasks(brief, count=3, level="начинающий", class_num
     for i, it in enumerate(arr[:count], 1):
         if isinstance(it, dict):
             out.append({
-                "title": str(it.get("title", "Задание " + str(i)))[:120],
+                "title": str(it.get("title", f"Задание {i}"))[:120],
                 "description": str(it.get("description", "")),
                 "starter_code": str(it.get("starter_code", "")),
                 "ai_criteria": str(it.get("ai_criteria", "")),
@@ -407,16 +322,13 @@ async def generate_tasks(brief, count=3, level="начинающий", class_num
     return out
 
 
-async def practice_generate(grade, level, custom, prompt_text, count=3):
+async def practice_generate(grade: int, level: str, custom: bool, prompt_text: str, count: int = 3) -> list[dict]:
     count = max(1, min(6, int(count)))
-    if custom and prompt_text.strip():
-        brief = prompt_text.strip()
-    else:
-        brief = "Подбери тренировочные задачи по школьной программе " + str(grade) + " класса, уровень " + level
+    brief = prompt_text.strip() if (custom and prompt_text.strip()) else f"Подбери тренировочные задачи по школьной программе {grade} класса, уровень {level}"
     return await generate_tasks(brief, count, level, grade=grade)
 
 
-async def practice_check(description, criteria, code, stdout, stderr):
+async def practice_check(description: str, criteria: str, code: str, stdout: str, stderr: str) -> dict:
     v = await check_with_ai(description, criteria, "", code, stdout, stderr)
     return {"is_correct": bool(v.get("is_correct")), "feedback": str(v.get("feedback", ""))}
 
@@ -425,7 +337,7 @@ async def practice_check(description, criteria, code, stdout, stderr):
 _cache = {"ts": 0.0, "ok": False, "provider": None, "error": None}
 
 
-async def status():
+async def status() -> dict:
     now = time.time()
     debug = _debug_env()
     if now - _cache["ts"] < 5:
@@ -504,7 +416,7 @@ async def ai_preview(d: AiIn, t: Teacher = Depends(_teacher)):
     try:
         return {"tasks": await generate_tasks(d.brief, d.count, d.level, d.class_number, d.grade)}
     except Exception as e:
-        raise HTTPException(502, "AI не смог сгенерировать задания: " + str(e))
+        raise HTTPException(502, f"AI не смог сгенерировать задания: {e}")
 
 
 @router.post("/lessons/{lid}/ai-tasks")
@@ -522,7 +434,7 @@ async def ai_tasks(lid: str, d: AiIn, t: Teacher = Depends(_teacher), db: AsyncS
     try:
         drafts = await generate_tasks(d.brief, d.count, d.level, d.class_number, grade)
     except Exception as e:
-        raise HTTPException(502, "AI не смог сгенерировать задания: " + str(e))
+        raise HTTPException(502, f"AI не смог сгенерировать задания: {e}")
     mx = (await db.execute(select(func.max(Task.order_index)).where(Task.lesson_id == l.id))).scalar() or 0
     created = []
     for i, dr in enumerate(drafts, 1):
