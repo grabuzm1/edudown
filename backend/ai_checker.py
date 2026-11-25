@@ -64,13 +64,58 @@ def _parse(text):
         return json.loads(text)
     except Exception:
         pass
+    # ищем JSON внутри
+    src = text
     for op in ("[", "{"):
         i = text.find(op)
         if i >= 0:
+            src = text[i:]
             try:
-                return json.JSONDecoder().raw_decode(text[i:])[0]
+                return json.JSONDecoder().raw_decode(src)[0]
             except Exception:
                 continue
+    # попытка починить обрезанный JSON
+    i_brace = text.find("{")
+    i_sq = text.find("[")
+    if i_brace >= 0 or i_sq >= 0:
+        start = min(x for x in (i_brace, i_sq) if x >= 0)
+        src = text[start:]
+        # закрываем все незакрытые скобки
+        stack = []
+        in_str = False
+        esc = False
+        for ch in src:
+            if esc:
+                esc = False
+                continue
+            if ch == "\\":
+                esc = True
+                continue
+            if ch == '"':
+                in_str = not in_str
+                continue
+            if in_str:
+                continue
+            if ch in ("{", "["):
+                stack.append(ch)
+            elif ch == "}" and stack and stack[-1] == "{":
+                stack.pop()
+            elif ch == "]" and stack and stack[-1] == "[":
+                stack.pop()
+        close = ""
+        for s in reversed(stack):
+            close += "}" if s == "{" else "]"
+        if close:
+            fixed = src.rstrip()
+            # убираем последний незавершённый элемент (висячая запятая/незаконченный объект)
+            last_cut = max(fixed.rfind(","), fixed.rfind("{"), fixed.rfind("["))
+            if last_cut > 0:
+                fixed = fixed[:last_cut]
+            fixed = fixed.rstrip() + close
+            try:
+                return json.JSONDecoder().raw_decode(fixed)[0]
+            except Exception:
+                pass
     raise RuntimeError("модель вернула не-JSON: " + text[:160])
 
 
@@ -97,7 +142,7 @@ async def _gigachat_token():
 async def _gigachat(prompt, temp, json_mode):
     token = await _gigachat_token()
     model = _giga("GIGACHAT_MODEL", "GigaChat")
-    body = {"model": model, "messages": [{"role": "user", "content": prompt}], "temperature": temp}
+    body = {"model": model, "messages": [{"role": "user", "content": prompt}], "temperature": temp, "max_tokens": 4096}
     if json_mode:
         body["response_format"] = {"type": "json_object"}
     headers = {"Authorization": "Bearer " + token, "Content-Type": "application/json"}
@@ -128,7 +173,8 @@ async def _gemini(prompt, temp, json_mode):
     async with httpx.AsyncClient(timeout=float(settings.AI_TIMEOUT)) as c:
         for ver in ("v1beta", "v1"):
             for m in models:
-                body = {"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": temp}}
+                body = {"contents": [{"parts": [{"text": prompt}]}],
+                        "generationConfig": {"temperature": temp, "maxOutputTokens": 4096}}
                 if json_mode:
                     body["generationConfig"]["responseMimeType"] = "application/json"
                 try:
@@ -162,7 +208,8 @@ async def _openai(prompt, temp, json_mode):
     key = _okey()
     if not key:
         raise RuntimeError("OPENAI_API_KEY не задан")
-    body = {"model": settings.OPENAI_MODEL, "messages": [{"role": "user", "content": prompt}], "temperature": temp}
+    body = {"model": settings.OPENAI_MODEL, "messages": [{"role": "user", "content": prompt}], "temperature": temp,
+            "max_tokens": 4096}
     if json_mode:
         body["response_format"] = {"type": "json_object"}
     async with httpx.AsyncClient(timeout=float(settings.AI_TIMEOUT)) as c:
@@ -324,9 +371,9 @@ async def generate_tasks(brief, count=3, level="начинающий", class_num
         "3. Запрещено давать задачу ниже программы класса (для 11 класса НЕЛЬЗЯ «выведи 7» или «сумма двух») и выше программы класса (для 5 класса НЕЛЬЗЯ def и словари).\n\n"
         "Сгенерируй ровно " + str(count) + " заданий от простого к сложному, все в рамках программы класса и уровня.\n\n"
         "ФОРМАТ ОТВЕТА — СТРОГО JSON-объект без markdown и без обратных кавычек:\n" + _GEN_JSON + "\n\n"
-        "Правила для ai_criteria: короткие факты через точку с запятой, например 12; print или чётное; if; % 2 == 0. "
-        "Если нужна конкретная конструкция (def, class, for, рекурсия) — укажи её. Не перефразируй задание.\n"
-        "Все тексты на русском. Решения 5-20 строк кода."
+        "Правила: ai_criteria — короткие факты через точку с запятой (например 12; print).\n"
+        "ВАЖНО: в description максимум 2-3 коротких предложения, БЕЗ многострочных примеров кода — JSON должен поместиться целиком.\n"
+        "Все тексты на русском. Решения 5-15 строк кода."
     )
     text, _ = await ask(prompt, 0.7, True)
     data = _parse(text)
