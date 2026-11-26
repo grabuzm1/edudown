@@ -17,8 +17,18 @@ jobs:
           script: |
             cd /var/www/edudown
             git pull origin main
+
             cd backend
-            source .venv/bin/activate
+            # Если нет виртуального окружения — создаем его
+            if [ ! -d ".venv" ]; then
+              python3 -m venv .venv
+              source .venv/bin/activate
+              pip install -r requirements.txt
+            else
+              source .venv/bin/activate
+            fi
+
+            # Убиваем старый процесс и запускаем новый
             pkill -f "uvicorn main:app" || true
             sleep 1
             nohup uvicorn main:app --host 127.0.0.1 --port 8001 > uvicorn.log 2>&1 &
