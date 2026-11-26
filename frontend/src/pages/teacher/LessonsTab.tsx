@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { BookOpen, Copy, Plus, Trash2, Users } from 'lucide-react'
+import { Archive, BookOpen, Copy, Plus, Trash2, Users } from 'lucide-react'
 import { teacherApi, errText, type Lesson, type ClassItem } from '../../api'
 import { useToast } from '../../context/ToastContext'
 import Modal from '../../components/Modal'
@@ -23,11 +23,19 @@ export default function LessonsTab() {
     try { await teacherApi.publish(l.id, !l.is_published); toast(l.is_published ? 'Урок скрыт' : 'Урок опубликован') }
     catch (e) { toast(errText(e), 'err'); load() }
   }
+
+  const archive = async (l: Lesson) => {
+    if (!confirm(`Архивировать урок «${l.title}»?`)) return
+    try { await teacherApi.archiveLesson(l.id); toast('Урок архивирован'); load() }
+    catch (e) { toast(errText(e), 'err') }
+  }
+
   const remove = async (l: Lesson) => {
     if (!confirm(`Удалить урок «${l.title}»?`)) return
     setLessons(x => x.filter(y => y.id !== l.id))
     try { await teacherApi.deleteLesson(l.id); toast('Урок удалён') } catch (e) { toast(errText(e), 'err'); load() }
   }
+
   const copy = async (code: string) => { try { await navigator.clipboard.writeText(code); toast('Код скопирован') } catch { toast(code) } }
 
   return (
@@ -55,6 +63,7 @@ export default function LessonsTab() {
             <div className="flex gap-2 mt-auto">
               <button className="ghost flex-1 py-2 rounded-lg text-sm" onClick={() => setOpenId(l.id)}>Открыть</button>
               <button className="ghost px-3 py-2 rounded-lg text-sm" onClick={() => togglePublish(l)}>{l.is_published ? 'Скрыть' : 'Публиковать'}</button>
+              <button className="ghost px-3 py-2 rounded-lg !border-[rgba(251,191,36,.4)] !text-[#fbbf24]" onClick={() => archive(l)} title="В архив"><Archive size={15} /></button>
               <button className="ghost px-3 py-2 rounded-lg !border-[rgba(244,63,94,.4)] !text-[#f43f5e]" onClick={() => remove(l)}><Trash2 size={15} /></button>
             </div>
           </div>

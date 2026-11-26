@@ -249,11 +249,11 @@ class PracticeCheckIn(BaseModel):
 
 
 # ═══════════════ СЕРИАЛИЗАЦИЯ ═══════════════
-def lesson_dict(l: Lesson, tc=0, sc=0) -> dict:
+def lesson_dict(l: Lesson, tc: int = 0, sc: int = 0) -> dict:
     return {
         "id": l.id, "title": l.title, "description": l.description or "",
         "access_code": l.access_code, "is_published": bool(l.is_published),
-        "is_archived": bool(l.is_archived),
+        "is_archived": bool(l.is_archived),  # <--- ДОБАВЬ ЭТО
         "deadline": l.deadline.isoformat() if l.deadline else None,
         "created_at": l.created_at.isoformat() if l.created_at else None,
         "task_count": tc, "student_count": sc, "class_id": l.class_id,
@@ -398,12 +398,19 @@ async def list_lessons(t: Teacher = Depends(get_current_teacher), db: AsyncSessi
 
 
 @teacher.get("/lessons/archived")
-async def list_archived(t: Teacher = Depends(get_current_teacher), db: AsyncSession = Depends(get_db)):
-    lessons = (await db.execute(select(Lesson).where(Lesson.teacher_id == t.id, Lesson.is_archived == True, Lesson.class_id != None).order_by(Lesson.created_at.desc()))).scalars().all()
+async def list_archived_lessons(t: Teacher = Depends(get_current_teacher), db: AsyncSession = Depends(get_db)):
+    lessons = (await db.execute(
+        select(Lesson).where(
+            Lesson.teacher_id == t.id,
+            Lesson.is_archived == True  # <--- ГЛАВНОЕ УСЛОВИЕ
+        ).order_by(Lesson.created_at.desc())
+    )).scalars().all()
+
     out = []
     for l in lessons:
         tc = (await db.execute(select(func.count(Task.id)).where(Task.lesson_id == l.id))).scalar() or 0
-        sc = (await db.execute(select(func.count(StudentSession.id)).where(StudentSession.lesson_id == l.id))).scalar() or 0
+        sc = (await db.execute(
+            select(func.count(StudentSession.id)).where(StudentSession.lesson_id == l.id))).scalar() or 0
         out.append(lesson_dict(l, tc, sc))
     return out
 
@@ -488,7 +495,7 @@ async def archive_lesson(lesson_id: str, t: Teacher = Depends(get_current_teache
     l = await own_lesson(lesson_id, t, db)
     l.is_archived = True
     l.is_published = False
-    await db.flush()
+    await db.commit()
     return {"ok": True}
 
 

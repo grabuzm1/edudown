@@ -77,11 +77,9 @@ export default function LessonDrawer({ id, onClose }: { id: string; onClose: () 
                   <button className="ghost px-3 py-1.5 rounded-lg text-sm" onClick={saveLesson}>Сохранить</button>
                   <span className="font-mono text-[#a3e635] tracking-[.2em] text-sm">{l.access_code}</span>
                   <span className={`badge ${l.is_published ? 'badge-live' : 'badge-draft'}`}>{l.is_published ? 'live' : 'draft'}</span>
-                  {l.class_id && (
-                    <button className="ghost px-3 py-1.5 rounded-lg text-xs !border-[rgba(251,191,36,.4)] !text-[#fbbf24]" onClick={archive}>
-                      <Archive size={13} className="inline" /> В архив
-                    </button>
-                  )}
+                  <button className="ghost px-3 py-1.5 rounded-lg text-xs !border-[rgba(251,191,36,.4)] !text-[#fbbf24]" onClick={archive}>
+                    <Archive size={13} className="inline" /> В архив
+                  </button>
                 </div>
               </div>
               <button className="ghost p-2 rounded-lg" onClick={onClose}><X size={16} /></button>
