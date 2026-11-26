@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { ArrowLeft, ArrowRight, BookOpen, Key, Loader2, Sparkles, UserPlus, Users } from 'lucide-react'
+import { ArrowLeft, ArrowRight, BookOpen, Key, Loader2, Sparkles, Users } from 'lucide-react'
 import { studentApi, errText, type LessonsByCode } from '../api'
 import { useToast } from '../context/ToastContext'
 
-const DOWN_URL = 'https://imdown.pro'
 type Step = 'type' | 'auth' | 'code' | 'lessons' | 'regular'
 
 export default function StudentJoin() {
@@ -34,10 +33,6 @@ export default function StudentJoin() {
     localStorage.setItem('student_lesson', res.lesson_title)
     toast(`Привет, ${res.student_display_name}!`)
     nav('/workspace')
-  }
-
-  const goDownId = () => {
-    window.location.assign(DOWN_URL + '/consent?service=edudown')
   }
 
   const loadByCode = async () => {
@@ -97,8 +92,8 @@ export default function StudentJoin() {
       <div className="glass rounded-2xl p-8 w-full max-w-md rise space-y-4">
         <h2 className="text-2xl font-extrabold">Как войти?</h2>
         <p className="text-sm text-[#93a9d1]">{lessonType === 'class' ? 'Урок от класса' : 'Обычный урок'}</p>
-        <button className="ghost w-full py-4 rounded-xl text-sm flex items-center justify-center gap-2" onClick={goDownId}>
-          <UserPlus size={16} /> Через Down ID (imdown.pro)
+        <button className="ghost w-full py-4 rounded-xl text-sm flex items-center justify-center gap-2 opacity-50 cursor-not-allowed" disabled title="Временно недоступно">
+          <Key size={16} /> Через Down ID — временно недоступно
         </button>
         <button className="neon w-full py-4 rounded-xl text-sm flex items-center justify-center gap-2"
           onClick={() => { setWithAccount(false); setStep(lessonType === 'class' ? 'code' : 'regular') }}>

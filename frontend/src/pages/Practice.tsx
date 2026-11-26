@@ -5,9 +5,7 @@ import { ArrowLeft, CheckCircle2, Eraser, Loader2, Moon, Play, RotateCcw, Sparkl
 import { practiceApi, errText } from '../api'
 import { useToast } from '../context/ToastContext'
 import { useTheme } from '../context/ThemeContext'
-
 import { usePyodideRunner } from '../pyodide/usePyodideRunner'
-
 
 type PTask = { title: string; description: string; starter_code: string; ai_criteria: string; done?: boolean; tried?: boolean }
 type Line = { kind: 'out' | 'err' | 'sys'; text: string }
@@ -78,7 +76,7 @@ export default function Practice() {
           <h2 className="text-2xl font-extrabold flex items-center gap-2"><Sparkles size={22} className="text-[#4f7dff]" /> Тренировка</h2>
           <p className="text-sm text-[#93a9d1]">Решай задачи по своему уровню — без урока и оценок</p>
         </div>
-                <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2">
           <button className="ghost p-2 rounded-xl" onClick={toggle} title={theme === 'light' ? 'Тёмная тема' : 'Светлая тема'}>
             {theme === 'light' ? <Moon size={15} /> : <Sun size={15} />}
           </button>
@@ -115,6 +113,7 @@ export default function Practice() {
         <button className="neon w-full py-2.5 rounded-xl flex items-center justify-center gap-2" onClick={generate} disabled={genBusy}>
           {genBusy ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />} Сгенерировать задачи
         </button>
+        <div className="text-[10px] text-[#5b6c92] text-center">нейросеть: gpt-6-luna · бесплатно для всех</div>
       </div>
 
       {tasks.length > 0 && (

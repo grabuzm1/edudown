@@ -51,12 +51,19 @@ export interface LessonsByCode {
   student: { surname: string; name: string; student_code: string };
   class_display: string; lessons: ActiveClassLesson[];
 }
+export interface SubscriptionStatus { plus: boolean; until: string | null; kind: string }
+export type Engine = 'gigachat' | 'gpt'
 
 export function errText(e: any): string {
-  const d = e?.detail ?? e?.message ?? 'Неизвестная ошибка'
-  if (Array.isArray(d)) return d.map((x: any) => x?.msg ?? JSON.stringify(x)).join('; ')
-  if (typeof d === 'object') return JSON.stringify(d)
-  return String(d)
+  const d = e?.detail ?? e?.message ?? ''
+  if (Array.isArray(d)) {
+    const s = d.map((x: any) => x?.msg ?? JSON.stringify(x)).join('; ')
+    return s || 'Ошибка запроса'
+  }
+  if (typeof d === 'object' && d !== null) return JSON.stringify(d)
+  const s = String(d ?? '').trim()
+  if (s) return s
+  return e?.status ? `Ошибка сервера (${e.status}). Бэкенд недоступен.` : 'Сервер недоступен. Проверь, что бэкенд запущен.'
 }
 
 export function journalFromRatio(plus: number, total: number): number | null {
@@ -68,11 +75,15 @@ export function journalFromRatio(plus: number, total: number): number | null {
   return 2
 }
 
+function studentAccountId(): string | null {
+  try { return JSON.parse(localStorage.getItem('student_account') || 'null')?.id ?? null } catch { return null }
+}
+
 async function request<T = any>(path: string, opts: { method?: string; body?: any; token?: string } = {}): Promise<T> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' }
   const teacherToken = localStorage.getItem('teacher_token')
   if (opts.token) headers['Authorization'] = `Bearer ${opts.token}`
-  else if (teacherToken && path.startsWith('/api/teacher')) headers['Authorization'] = `Bearer ${teacherToken}`
+  else if (teacherToken && (path.startsWith('/api/teacher') || path.startsWith('/api/subscription'))) headers['Authorization'] = `Bearer ${teacherToken}`
   const res = await fetch(BASE + path, { method: opts.method ?? 'GET', headers, body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined })
   if (res.status === 204) return null as T
   const data = await res.json().catch(() => ({ detail: res.statusText }))
@@ -91,7 +102,7 @@ export const teacherApi = {
   patchLesson: (id: string, d: any) => request<Lesson>(`/api/teacher/lessons/${id}`, { method: 'PATCH', body: d }),
   publish: (id: string, on: boolean) => request<Lesson>(`/api/teacher/lessons/${id}/publish`, { method: 'PATCH', body: { is_published: on } }),
   archiveLesson: (id: string) => request(`/api/teacher/lessons/${id}/archive`, { method: 'POST', body: {} }),
-  republishLesson: (id: string, newTitle?: string) => request<Lesson>(`/api/teacher/lessons/${id}/republish`, { method: 'POST', body: { new_title: newTitle } }),
+  republishLesson: (id: string, d: { new_title?: string; class_id?: string | null }) => request<Lesson>(`/api/teacher/lessons/${id}/republish`, { method: 'POST', body: d }),
   deleteLesson: (id: string) => request(`/api/teacher/lessons/${id}`, { method: 'DELETE' }),
   createTask: (lessonId: string, d: any) => request<Task>(`/api/teacher/lessons/${lessonId}/tasks`, { method: 'POST', body: d }),
   patchTask: (taskId: string, d: any) => request<Task>(`/api/teacher/tasks/${taskId}`, { method: 'PATCH', body: d }),
@@ -114,9 +125,17 @@ export const teacherApi = {
   createFavorite: (d: { title: string; description?: string; tasks: any[] }) => request<FavoriteItem>('/api/teacher/favorites', { method: 'POST', body: d }),
   deleteFavorite: (id: string) => request(`/api/teacher/favorites/${id}`, { method: 'DELETE' }),
   aiStatus: () => request('/api/teacher/ai-status'),
+  aiModels: () => request<{ models: string[]; current: string; error?: string }>('/api/teacher/ai-models'),
   aiPreview: (d: { brief: string; count: number; level: string; class_number?: number | null; grade?: number | null }) => request<{ tasks: any[] }>('/api/teacher/ai-preview', { method: 'POST', body: d }),
   aiTasks: (lessonId: string, d: { brief: string; count: number; level: string; class_number?: number | null; grade?: number | null }) => request<{ tasks: any[] }>(`/api/teacher/lessons/${lessonId}/ai-tasks`, { method: 'POST', body: d }),
   aiSelfTest: (d: { task_id: string; code: string }) => request('/api/teacher/ai-selftest', { method: 'POST', body: d }),
+}
+
+export const subscriptionApi = {
+  me: (accountId?: string | null) =>
+    request<SubscriptionStatus>('/api/subscription/me' + (accountId ? `?account_id=${accountId}` : '')),
+  activate: (d: { account_id?: string | null; code?: string | null }) =>
+    request<{ plus: boolean; until: string; kind: string }>('/api/subscription/activate', { method: 'POST', body: d }),
 }
 
 export const studentAuthApi = {
@@ -151,12 +170,12 @@ export const studentApi = {
 }
 
 export const practiceApi = {
-  generate: (d: { grade?: number; level?: string; custom?: boolean; prompt?: string; count?: number }) =>
-    request<{ tasks: { title: string; description: string; starter_code: string; ai_criteria: string }[] }>(
+  generate: (d: { grade?: number; level?: string; custom?: boolean; prompt?: string; count?: number; engine?: Engine }) =>
+    request<{ tasks: { title: string; description: string; starter_code: string; ai_criteria: string }[]; tier?: string; engine?: string }>(
       '/api/student/practice/generate', {
         method: 'POST',
-        body: { grade: d.grade ?? 7, level: d.level ?? 'начинающий', custom: !!d.custom, prompt: d.prompt ?? '', count: d.count ?? 3 },
+        body: { grade: d.grade ?? 7, level: d.level ?? 'начинающий', custom: !!d.custom, prompt: d.prompt ?? '', count: d.count ?? 3, engine: d.engine ?? 'gigachat', account_id: studentAccountId() },
       }),
-  check: (d: { description: string; criteria: string; code: string; stdout: string; stderr: string }) =>
-    request<{ is_correct: boolean; feedback: string }>('/api/student/practice/check', { method: 'POST', body: d }),
+  check: (d: { description: string; criteria: string; code: string; stdout: string; stderr: string; engine?: Engine }) =>
+    request<{ is_correct: boolean; feedback: string; engine?: string }>('/api/student/practice/check', { method: 'POST', body: { ...d, engine: d.engine ?? 'gigachat', account_id: studentAccountId() } }),
 }

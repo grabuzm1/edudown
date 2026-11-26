@@ -14,6 +14,7 @@ class Teacher(Base):
     password_hash = Column(String(255), nullable=False)
     full_name = Column(String(255), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    plus_until = Column(DateTime, nullable=True)
 
 class StudentAccount(Base):
     __tablename__ = "student_accounts"
@@ -24,6 +25,7 @@ class StudentAccount(Base):
     name = Column(String(100), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     down_id = Column(String(100), unique=True, index=True, nullable=True)
+    plus_until = Column(DateTime, nullable=True)
 
 class Class(Base):
     __tablename__ = "classes"

@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom'
-import { ArrowRight, BookOpen, CheckCircle2, GraduationCap, Sparkles, Star, Terminal, Users } from 'lucide-react'
+import { ArrowRight, BookOpen, CheckCircle2, GraduationCap, Newspaper, Sparkles, Star, Terminal, Users } from 'lucide-react'
 
 export default function Home() {
   const nav = useNavigate()
@@ -17,16 +17,6 @@ export default function Home() {
   ]
   return (
     <div className="rise space-y-16 py-6">
-            <div className="max-w-3xl mx-auto glass rounded-2xl p-4 flex items-start gap-3" style={{ borderLeft: '4px solid #fbbf24' }}>
-        <span className="text-xl leading-none">🛠️</span>
-        <div className="text-sm">
-          <div className="font-bold">Плановые работы на сервере</div>
-          <p className="text-[#93a9d1] mt-1">
-            25 ноября с 12:00 МСК (09:00 UTC) проводим плановые работы на стороне сервера — меняют оборудование на подстанции.
-            Сайт и уроки могут быть временно недоступны (ориентировочно 5-20 минут). Все данные и работы учеников сохранятся.
-          </p>
-        </div>
-      </div>
       {/* HERO */}
       <section className="text-center space-y-6 max-w-3xl mx-auto">
         <div className="inline-flex items-center gap-2 glass rounded-full px-4 py-1.5 text-xs text-[#93a9d1]">
@@ -48,9 +38,11 @@ export default function Home() {
             onClick={() => nav(localStorage.getItem('student_token') ? '/workspace' : '/join')}>
             <GraduationCap size={17} /> Я ученик — войти на урок
           </button>
+          <button className="ghost px-6 py-3 rounded-xl font-semibold flex items-center gap-2" onClick={() => nav('/updates')}>
+            <Newspaper size={17} /> Что нового
+          </button>
         </div>
       </section>
-
       {/* FEATURES */}
       <section className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {features.map(f => (
@@ -61,7 +53,6 @@ export default function Home() {
           </div>
         ))}
       </section>
-
       {/* HOW IT WORKS */}
       <section className="space-y-6">
         <h2 className="text-3xl font-extrabold text-center">Как это работает</h2>
@@ -76,7 +67,6 @@ export default function Home() {
           ))}
         </div>
       </section>
-
       {/* CTA */}
       <section className="glass rounded-3xl p-10 text-center space-y-4">
         <CheckCircle2 size={32} className="mx-auto text-[#a3e635]" />
@@ -84,7 +74,6 @@ export default function Home() {
         <p className="text-[#93a9d1] text-sm">Создай класс, сгенерируй задания через AI и раздай коды — всё за 5 минут.</p>
         <button className="neon px-8 py-3 rounded-xl font-semibold" onClick={() => nav('/auth')}>Создать аккаунт учителя</button>
       </section>
-
       <footer className="text-center text-xs text-[#5b6c92] pb-4">EduDown Pro · edu.imdown.pro</footer>
     </div>
   )

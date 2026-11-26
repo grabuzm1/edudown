@@ -197,6 +197,7 @@ class FavoriteIn(BaseModel):
 
 class RepublishIn(BaseModel):
     new_title: str | None = None
+    class_id: str | None = None
 
 
 class StudentRegisterIn(BaseModel):
@@ -233,6 +234,8 @@ class PracticeGenIn(BaseModel):
     custom: bool = False
     prompt: str = ""
     count: int = 3
+    account_id: str | None = None
+    engine: str | None = None  # 'gigachat' | 'gpt' — свободный переключатель
 
 
 class PracticeCheckIn(BaseModel):
@@ -241,6 +244,8 @@ class PracticeCheckIn(BaseModel):
     code: str = ""
     stdout: str = ""
     stderr: str = ""
+    account_id: str | None = None
+    engine: str | None = None
 
 
 # ═══════════════ СЕРИАЛИЗАЦИЯ ═══════════════
@@ -490,11 +495,19 @@ async def archive_lesson(lesson_id: str, t: Teacher = Depends(get_current_teache
 @teacher.post("/lessons/{lesson_id}/republish")
 async def republish_lesson(lesson_id: str, data: RepublishIn, t: Teacher = Depends(get_current_teacher), db: AsyncSession = Depends(get_db)):
     old = await own_lesson(lesson_id, t, db)
+    if "class_id" in data.model_fields_set:
+        class_id = data.class_id
+        if class_id:
+            c = (await db.execute(select(Class).where(Class.id == class_id, Class.teacher_id == t.id))).scalar_one_or_none()
+            if not c:
+                raise HTTPException(404, "Класс не найден")
+    else:
+        class_id = old.class_id
     tasks = await lesson_tasks(old.id, db)
     code = generate_access_code()
     while (await db.execute(select(Lesson).where(Lesson.access_code == code))).scalar_one_or_none():
         code = generate_access_code()
-    l = Lesson(teacher_id=t.id, class_id=old.class_id, title=data.new_title or old.title,
+    l = Lesson(teacher_id=t.id, class_id=class_id, title=data.new_title or old.title,
                description=old.description, access_code=code, is_published=True)
     db.add(l)
     await db.flush()
@@ -1049,25 +1062,101 @@ async def submission_status(submission_id: str, authorization: str | None = Head
 practice = APIRouter(prefix="/api/student/practice", tags=["practice"])
 
 
+async def _student_tier(db: AsyncSession, account_id: str | None) -> str:
+    if not account_id:
+        return "free"
+    acc = (await db.execute(select(StudentAccount).where(StudentAccount.id == account_id))).scalar_one_or_none()
+    if acc and acc.plus_until and acc.plus_until > datetime.utcnow():
+        return "plus"
+    return "free"
+
+
+def _engine_tier(engine: str | None, fallback: str) -> str:
+    if engine == "gpt":
+        return "plus"
+    if engine == "gigachat":
+        return "free"
+    return fallback
+
+
+practice = APIRouter(prefix="/api/student/practice", tags=["practice"])
+
+
 @practice.post("/generate")
-async def practice_gen(data: PracticeGenIn | None = None):
+async def practice_gen(data: PracticeGenIn | None = None, db: AsyncSession = Depends(get_db)):
     from ai_checker import practice_generate
     d = data or PracticeGenIn()
     grade = max(1, min(11, int(d.grade or 7)))
     count = max(1, min(6, int(d.count or 3)))
     try:
-        tasks = await practice_generate(grade, d.level or "начинающий", bool(d.custom), d.prompt or "", count)
+        tasks = await practice_generate(grade, d.level or "начинающий", bool(d.custom), d.prompt or "", count, "free")
     except Exception as e:
         raise HTTPException(502, f"AI не смог сгенерировать задачи: {e}")
-    return {"tasks": tasks}
+    return {"tasks": tasks, "tier": "free", "engine": "gpt"}
 
 
 @practice.post("/check")
-async def practice_chk(data: PracticeCheckIn | None = None):
+async def practice_chk(data: PracticeCheckIn | None = None, db: AsyncSession = Depends(get_db)):
     from ai_checker import practice_check
     d = data or PracticeCheckIn()
-    return await practice_check(d.description, d.criteria, d.code, d.stdout, d.stderr)
+    res = await practice_check(d.description, d.criteria, d.code, d.stdout, d.stderr, "free")
+    res["engine"] = "gpt"
+    return res
 
+subscription = APIRouter(prefix="/api/subscription", tags=["subscription"])
+
+
+class ActivateIn(BaseModel):
+    account_id: str | None = None
+    code: str | None = None
+
+
+def _teacher_id_from_header(authorization: str | None) -> str | None:
+    if not authorization:
+        return None
+    parts = authorization.split()
+    tok = parts[1] if len(parts) == 2 and parts[0].lower() == "bearer" else authorization.strip()
+    try:
+        p = jwt.decode(tok, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
+        return p.get("sub") if p.get("type") == "teacher" else None
+    except Exception:
+        return None
+
+
+@subscription.get("/me")
+async def sub_me(authorization: str | None = Header(None), account_id: str | None = None, db: AsyncSession = Depends(get_db)):
+    from ai_checker import tier_for
+    tid = _teacher_id_from_header(authorization)
+    if tid:
+        t = (await db.execute(select(Teacher).where(Teacher.id == tid))).scalar_one_or_none()
+        if t:
+            return {"plus": tier_for(t.plus_until) == "plus", "until": t.plus_until.isoformat() if t.plus_until else None, "kind": "teacher"}
+    if account_id:
+        a = (await db.execute(select(StudentAccount).where(StudentAccount.id == account_id))).scalar_one_or_none()
+        if a:
+            return {"plus": tier_for(a.plus_until) == "plus", "until": a.plus_until.isoformat() if a.plus_until else None, "kind": "student"}
+    return {"plus": False, "until": None, "kind": "guest"}
+
+
+@subscription.post("/activate")
+async def sub_activate(data: ActivateIn, authorization: str | None = Header(None), db: AsyncSession = Depends(get_db)):
+    # TEST-режим: выдаём 30 дней. Позже заменим на оплату/промокоды.
+    from datetime import timedelta
+    until = datetime.utcnow() + timedelta(days=30)
+    tid = _teacher_id_from_header(authorization)
+    if tid:
+        t = (await db.execute(select(Teacher).where(Teacher.id == tid))).scalar_one_or_none()
+        if not t: raise HTTPException(404, "Учитель не найден")
+        t.plus_until = until
+        await db.commit()
+        return {"plus": True, "until": until.isoformat(), "kind": "teacher"}
+    if data.account_id:
+        a = (await db.execute(select(StudentAccount).where(StudentAccount.id == data.account_id))).scalar_one_or_none()
+        if not a: raise HTTPException(404, "Аккаунт не найден. Войди через Down ID.")
+        a.plus_until = until
+        await db.commit()
+        return {"plus": True, "until": until.isoformat(), "kind": "student"}
+    raise HTTPException(400, "Нужен аккаунт: войди как учитель или через Down ID.")
 
 # ═══════════════ МИГРАЦИИ + ДЕДУП СЕССИЙ ═══════════════
 async def migrate_and_dedupe():
@@ -1075,6 +1164,8 @@ async def migrate_and_dedupe():
         for stmt in (
             "ALTER TABLE grades ADD COLUMN teacher_grade INTEGER",
             "ALTER TABLE student_accounts ADD COLUMN down_id VARCHAR(100)",
+            "ALTER TABLE teachers ADD COLUMN plus_until TIMESTAMP",
+            "ALTER TABLE student_accounts ADD COLUMN plus_until TIMESTAMP",
         ):
             try:
                 await db.execute(text(stmt))
@@ -1141,7 +1232,7 @@ app.include_router(classes_router)
 app.include_router(favorites_router)
 app.include_router(student_auth_router)
 app.include_router(practice)
-
+app.include_router(subscription)
 
 @app.get("/")
 async def root():
@@ -1161,7 +1252,7 @@ app.mount("/assets", StaticFiles(directory=_assets_dir), name="assets"),
 
 # Отдаем index.html для всех остальных путей (чтобы работал React Router)
 @app.get("/{full_path:path}")
-async def serve_frontend(full_path: str):
+async def spa(full_path: str):
     return FileResponse("public/index.html")
 
 if __name__ == "__main__":

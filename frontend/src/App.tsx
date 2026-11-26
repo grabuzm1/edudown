@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import Layout from './components/Layout'
 import Home from './pages/Home'
+import Updates from './pages/Updates'
 import TeacherAuth from './pages/TeacherAuth'
 import TeacherPanel from './pages/TeacherPanel'
 import LessonsTab from './pages/teacher/LessonsTab'
@@ -16,6 +17,7 @@ export default function App() {
     <Routes>
       <Route element={<Layout />}>
         <Route index element={<Home />} />
+        <Route path="updates" element={<Updates />} />
         <Route path="auth" element={<TeacherAuth />} />
         <Route path="auth/callback" element={<AuthCallback />} />
         <Route path="teacher" element={<TeacherPanel />}>
