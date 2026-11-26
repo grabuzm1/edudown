@@ -1,0 +1,93 @@
+# ═══════════════ БЕЗОПАСНОСТЬ И КЛЮЧИ ═══════════════
+# Любые файлы с переменными окружения (там лежат API-ключи и пароли БД)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets.json
+config.local.*
+
+# ═══════════════ БАЗЫ ДАННЫХ ═══════════════
+# SQLite и любые локальные базы (чтобы не было конфликтов при git pull)
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-wal
+*.db-shm
+
+# ═══════════════ ВИРТУАЛЬНЫЕ ОКРУЖЕНИЯ PYTHON ═══════════════
+.venv/
+venv/
+env/
+ENV/
+backend/.venv/
+backend/venv/
+
+# ═══════════════ КЭШИ И ЛОГИ PYTHON ═══════════════
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.installed.cfg
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# ═══════════════ ЛОГИ ═══════════════
+*.log
+logs/
+uvicorn.log
+backend/uvicorn.log
+npm-debug.log*
+yarn-debug.log*
+
+# ═══════════════ NODE.JS И ФРОНТЕНД ═══════════════
+node_modules/
+frontend/node_modules/
+dist/
+frontend/dist/
+build/
+frontend/build/
+.vite/
+frontend/.vite/
+npm-debug.log*
+yarn.lock
+package-lock.json
+
+# ═══════════════ ИДЕ И ОС ═══════════════
+# VS Code
+.vscode/
+!.vscode/extensions.json
+# PyCharm / IntelliJ / WebStorm
+.idea/
+*.iml
+# macOS
+.DS_Store
+# Windows
+Thumbs.db
+Desktop.ini
+# Linux
+*~
+
+# ═══════════════ ВРЕМЕННЫЕ ФАЙЛЫ ═══════════════
+*.tmp
+*.temp
+*.swp
+*.*~
+*.bak
+*.zip
+backend.zip
+
+# ═══════════════ DOCKER / СИСТЕМНОЕ ═══════════════
+.docker/
+docker-compose.override.yml
